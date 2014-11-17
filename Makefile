@@ -48,7 +48,7 @@ RPM_OPTS = --define "_sourcedir $(RPM_ROOT)"	\
 
 # Override this when invoking make to install elsewhere, e.g.:
 #   make WWW_BASE=/var/www install
-WWW_BASE = /srv/www
+WWW_BASE = /srv/www 
 
 # Override this to get a different init script (e.g. "redhat")
 INIT_STYLE = suse
@@ -62,9 +62,11 @@ WITHIN_VAGRANT = 0
 # Base paths for Pacemaker binaries (note: overriding these will change
 # paths used by hawk_invoke, but will have no effect on hard-coded paths
 # in the rails app)
-LIBDIR = /usr/lib
-BINDIR = /usr/bin
-SBINDIR = /usr/sbin
+LIBDIR = ${PREFIX}/lib
+BINDIR = ${PREFIX}/bin
+SBINDIR = ${PREFIX}/sbin
+USRDIRS = /usr/gnu/bin:/usr/bin:/usr/sbin:/usr/local/bin
+PYTHONPATH = ${PREFIX}/lib/python2.6/site-packages
 
 all: scripts/hawk.$(INIT_STYLE) scripts/hawk.service hawk/config/lighttpd.conf tools/hawk_chkpwd tools/hawk_monitor tools/hawk_invoke
 	(cd hawk; \
@@ -86,6 +88,8 @@ all: scripts/hawk.$(INIT_STYLE) scripts/hawk.service hawk/config/lighttpd.conf t
 		-e 's|@LIBDIR@|$(LIBDIR)|' \
 		-e 's|@BINDIR@|$(BINDIR)|' \
 		-e 's|@SBINDIR@|$(SBINDIR)|' \
+		-e 's|@USRDIRS@|$(USRDIRS)|' \
+		-e 's|@PYTHONPATH@|$(PYTHONPATH)|' \
 		-e 's|@WITHIN_VAGRANT@|$(WITHIN_VAGRANT)|' \
 		$< > $@
 
@@ -96,7 +100,7 @@ tools/hawk_monitor: tools/hawk_monitor.c
 	gcc $(CFLAGS) \
 		$(shell pkg-config --cflags glib-2.0) \
 		$(shell pkg-config --cflags libxml-2.0) \
-		-I/usr/include/pacemaker -I/usr/include/heartbeat \
+		-I${PREFIX}/include -I${PREFIX}/include/pacemaker -I${PREFIX}/include/heartbeat -L${PREFIX}/lib -R${PREFIX}/lib\
 		-o $@ $< \
 		-lcib -lcrmcommon -lqb -Wall \
 		$(shell pkg-config --libs glib-2.0) \
@@ -107,16 +111,23 @@ tools/hawk_invoke: tools/hawk_invoke.c tools/common.h
 	gcc -fpie -pie $(CFLAGS) -o $@ $<
 
 tools/install:
-	install -D -m 4750 tools/hawk_chkpwd $(DESTDIR)/usr/sbin/hawk_chkpwd
-	-chown root.haclient $(DESTDIR)/usr/sbin/hawk_chkpwd
-	-chmod u+s $(DESTDIR)/usr/sbin/hawk_chkpwd
+	install -D -m 4750 tools/hawk_chkpwd $(DESTDIR)${PREFIX}/sbin/hawk_chkpwd
+	-chown root.haclient $(DESTDIR)${PREFIX}/sbin/hawk_chkpwd
+	-chmod u+s $(DESTDIR)${PREFIX}/sbin/hawk_chkpwd
 
-	install -D -m 4750 tools/hawk_invoke $(DESTDIR)/usr/sbin/hawk_invoke
-	-chown root.haclient $(DESTDIR)/usr/sbin/hawk_invoke
-	-chmod u+s $(DESTDIR)/usr/sbin/hawk_invoke
+	install -D -m 4750 tools/hawk_invoke $(DESTDIR)${PREFIX}/sbin/hawk_invoke
+	-chown root.haclient $(DESTDIR)${PREFIX}/sbin/hawk_invoke
+	-chmod u+s $(DESTDIR)${PREFIX}/sbin/hawk_invoke
 
-	install -D -m 0755 tools/hawk_monitor $(DESTDIR)/usr/sbin/hawk_monitor
-	ln -sf /usr/sbin/hawk_monitor $(DESTDIR)$(WWW_BASE)/hawk/public/monitor
+	install -D -m 0755 tools/hawk_monitor $(DESTDIR)${PREFIX}/sbin/hawk_monitor
+	install -d -m 0755 $(DESTDIR)$(WWW_BASE)/hawk/public/
+	ln -sf ${PREFIX}/sbin/hawk_monitor $(DESTDIR)$(WWW_BASE)/hawk/public/monitor
+
+tools/uninstall:
+	rm $(DESTDIR)${PREFIX}/sbin/hawk_chkpwd
+	rm $(DESTDIR)${PREFIX}/sbin/hawk_invoke
+	rm $(DESTDIR)${PREFIX}/sbin/hawk_monitor
+	rm $(DESTDIR)$(WWW_BASE)/hawk/public/monitor
 
 # TODO(should): Verify this is really clean (it won't get rid of .mo files,
 # for example
@@ -156,7 +167,11 @@ install: tools/install
 	-chown -R hacluster.haclient $(DESTDIR)$(WWW_BASE)/hawk/tmp
 	-chmod g+w $(DESTDIR)$(WWW_BASE)/hawk/tmp/home
 	-chmod g+w $(DESTDIR)$(WWW_BASE)/hawk/tmp/explorer
-	install -D -m 0644 scripts/hawk.service $(DESTDIR)/usr/lib/systemd/system/hawk.service
+	install -D -m 0644 scripts/hawk.service $(DESTDIR)${PREFIX}/lib/systemd/system/hawk.service
+
+uninstall: tools/uninstall
+	rm -rf $(DESTDIR)$(WWW_BASE)
+	rm $(DESTDIR)${PREFIX}/lib/systemd/system/hawk.service
 
 # Make a tar.bz2 named for the most recent human-readable tag
 archive:

@@ -206,12 +206,21 @@ int main(int argc, char **argv)
 	 * through its members.  Likewise pwd still refers to the user
 	 * we're trying to become.
 	 */
-	if (setresgid(grp->gr_gid, grp->gr_gid, grp->gr_gid) != 0) {
-		die("ERROR: Can't set group to '%s' (%d)\n", grp->gr_name, grp->gr_gid);
-	}
-	if (setresuid(pwd->pw_uid, pwd->pw_uid, pwd->pw_uid) != 0) {
-		die("ERROR: Can't set user to '%s' (%d)\n", pwd->pw_name, pwd->pw_uid);
-	}
+#if defined(__sun)
+    if (setregid(grp->gr_gid, grp->gr_gid) != 0) {
+        die("ERROR: Can't set group to '%s' (%d)\n", grp->gr_name, grp->gr_gid);
+    }
+    if (setreuid(pwd->pw_uid, pwd->pw_uid) != 0) {
+        die("ERROR: Can't set user to '%s' (%d)\n", pwd->pw_name, pwd->pw_uid);
+    }
+#else
+   if (setresgid(grp->gr_gid, grp->gr_gid, grp->gr_gid) != 0) {
+       die("ERROR: Can't set group to '%s' (%d)\n", grp->gr_name, grp->gr_gid);
+   }
+   if (setresuid(pwd->pw_uid, pwd->pw_uid, pwd->pw_uid) != 0) {
+       die("ERROR: Can't set user to '%s' (%d)\n", pwd->pw_name, pwd->pw_uid);
+   }
+#endif
 
 	/*
 	 * Bit of cleanup - is this in the right place, and is it really
@@ -232,7 +241,12 @@ int main(int argc, char **argv)
 	if (clearenv() != 0) {
 		die("ERROR: Can't clear environment");
 	}
+#if defined(__sun)
+	setenv("PATH", SBINDIR":"BINDIR":"USRDIRS, 1);
+	setenv("PYTHONPATH",PYTHONPATH, 1);
+#else
 	setenv("PATH", SBINDIR":"BINDIR":/bin", 1);
+#endif
 	if (home != NULL) {
 		setenv("HOME", home, 1);
 	}

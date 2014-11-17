@@ -33,6 +33,8 @@ const char * const HACLIENT = "haclient";
 #define LIBDIR "@LIBDIR@"
 #define BINDIR "@BINDIR@"
 #define SBINDIR "@SBINDIR@"
+#define USRDIRS "@USRDIRS@"
+#define PYTHONPATH "@PYTHONPATH@"
 
 #define WITHIN_VAGRANT @WITHIN_VAGRANT@
 
